@@ -1,5 +1,6 @@
 package com.nikumeshi_azddi9.fortabletsample_1006
 
+import android.animation.Animator
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.content.Context
@@ -20,7 +21,7 @@ import kotlinx.android.synthetic.main.fragment_anime_and_code.*
 import kotlinx.coroutines.*
 import kotlin.coroutines.CoroutineContext
 
-class AnimeAndCodeFragment() : Fragment(), CoroutineScope {
+class AnimeAndCodeFragment : Fragment(), CoroutineScope {
 
     private val job = Job()
     override val coroutineContext: CoroutineContext
@@ -39,8 +40,8 @@ class AnimeAndCodeFragment() : Fragment(), CoroutineScope {
 
 
         companion object {
-            fun getCode(resId: Int) = IVEnum.values().find { resId == it.resId }?.code
-            fun getResId(code: Int) = IVEnum.values().find { code == it.code }?.resId
+            fun getCode(resId: Int) = values().find { resId == it.resId }?.code
+            fun getResId(code: Int) = values().find { code == it.code }?.resId
         }
     }
 
@@ -54,18 +55,15 @@ class AnimeAndCodeFragment() : Fragment(), CoroutineScope {
         return alphaAnimation
     }
 
-    private fun viewSorter(ivList: ArrayList<IVEnum>){
-        var tmp: IVEnum
-        for (i in 0..ivList.size-2){
-            for (j in ivList.size downTo i+1){
-                if (ivList[j].code < ivList[j-1].code){
-                    tmp = ivList[j]
-                    ivList[j] = ivList[j-1]
-                    ivList[j-1] = tmp
-                }
-            }
-        }
-    }
+    private fun initAlphaAnimation2(view: ImageView) =
+        listOf<ObjectAnimator>(
+            ObjectAnimator.ofFloat(view, "alpha", 1F),
+            ObjectAnimator.ofFloat(view, "alpha", 0F),
+            ObjectAnimator.ofFloat(view, "alpha", 1F),
+            ObjectAnimator.ofFloat(view, "alpha", 0F),
+            ObjectAnimator.ofFloat(view, "alpha", 1F)
+        )
+
 
     private fun View.getLocation() = IntArray(2).also { this.getLocationOnScreen(it) }
     private fun View.getTranslationX(view: View): Float{
@@ -81,65 +79,99 @@ class AnimeAndCodeFragment() : Fragment(), CoroutineScope {
         val view = inflater.inflate(R.layout.fragment_anime_and_code, container, false)
 
         val viewList = arrayListOf(IVEnum.IV9, IVEnum.IV5, IVEnum.IV6, IVEnum.IV8, IVEnum.IV3, IVEnum.IV1, IVEnum.IV2, IVEnum.IV4, IVEnum.IV7)
-        val alphaAnimation = initAlphaAnimation()
+//        val alphaAnimation = initAlphaAnimation()
+
+        var x = viewList.size-1
 
         view.findViewById<Button>(R.id.runBtn).setOnClickListener {
-            launch {
-                for (x in viewList.size-1 downTo  1){
-                    val iv1 = view.findViewById<ImageView>(viewList[x].resId)
-                    val iv2 = view.findViewById<ImageView>(viewList[x-1].resId)
+            val iv1 = view.findViewById<ImageView>(viewList[x].resId)
+            val iv2 = view.findViewById<ImageView>(viewList[x-1].resId)
 
-                    launch {
-                        iv1.startAnimation(alphaAnimation)
-                        iv2.startAnimation(alphaAnimation)
-                    }.join()
+            AnimatorSet().apply {
+                playSequentially( initAlphaAnimation2(iv1) )
+                duration = 300
+            }.start()
+            AnimatorSet().apply {
+                playSequentially( initAlphaAnimation2(iv2) )
+                duration = 300
+            }.start()
 
-                    when (viewList[x].code < viewList[x-1].code){
-                        true -> {
-                            launch {
-                                iv1.setColorFilter(Color.BLUE)
-                                iv2.setColorFilter(Color.RED)
-                            }.join()
+            when (viewList[x].code < viewList[x-1].code){
+                true -> {
+                    AnimatorSet().apply {
+                        startDelay = 1500
+                        playTogether(
+                            ObjectAnimator.ofFloat(iv1, "translationX", iv1.getTranslationX(iv2)),
+                            ObjectAnimator.ofFloat(iv2, "translationX", iv2.getTranslationX(iv1))
+                        )
+                        duration = 300
+                    }.start()
 
-                            launch {
-                                val translationX1 = ObjectAnimator.ofFloat(iv1, "translationX", iv1.getTranslationX(iv2))
-                                val translationX2 = ObjectAnimator.ofFloat(iv2, "translationX", iv2.getTranslationX(iv1))
-
-//                                Log.d("hoge", "iv1X: ${iv1.getLocation()[0]}, iv2X: ${iv2.getLocation()[0]}")
-
-                                AnimatorSet().apply {
-                                    playTogether(translationX1, translationX2)
-                                    duration = 300
-                                }.start()
-                                Thread.sleep(310)
-
-                                val tmp = viewList[x]
-                                viewList[x] = viewList[x-1]
-                                viewList[x-1] = tmp
-                            }.join()
-                        }
-                        false -> {
-                            launch {
-                                iv1.setColorFilter(Color.RED)
-                                iv2.setColorFilter(Color.BLUE)
-                            }.join()
-                        }
-                    }
-                    launch {
-                        iv1.colorFilter = null
-                        iv2.colorFilter = null
-
-                    }.join()
+                    val tmp = viewList[x]
+                    viewList[x] = viewList[x-1]
+                    viewList[x-1] = tmp
                 }
             }
+            x--
         }
+
+//        view.findViewById<Button>(R.id.runBtn).setOnClickListener {
+//            launch {
+//                for (x in viewList.size-1 downTo  1){
+//                    val iv1 = view.findViewById<ImageView>(viewList[x].resId)
+//                    val iv2 = view.findViewById<ImageView>(viewList[x-1].resId)
+//
+//                    launch {
+//                        iv1.startAnimation(alphaAnimation)
+//                        iv2.startAnimation(alphaAnimation)
+//                    }.join()
+//
+//                    when (viewList[x].code < viewList[x-1].code){
+//                        true -> {
+//                            launch {
+//                                iv1.setColorFilter(Color.BLUE)
+//                                iv2.setColorFilter(Color.RED)
+//                            }.join()
+//
+//                            launch {
+//                                val translationX1 = ObjectAnimator.ofFloat(iv1, "translationX", iv1.getTranslationX(iv2))
+//                                val translationX2 = ObjectAnimator.ofFloat(iv2, "translationX", iv2.getTranslationX(iv1))
+//
+////                                Log.d("hoge", "iv1X: ${iv1.getLocation()[0]}, iv2X: ${iv2.getLocation()[0]}")
+//
+//                                AnimatorSet().apply {
+//                                    playTogether(translationX1, translationX2)
+//                                    duration = 300
+//                                }.start()
+//                                Thread.sleep(310)
+//
+//                                val tmp = viewList[x]
+//                                viewList[x] = viewList[x-1]
+//                                viewList[x-1] = tmp
+//                            }.join()
+//                        }
+//                        false -> {
+//                            launch {
+//                                iv1.setColorFilter(Color.RED)
+//                                iv2.setColorFilter(Color.BLUE)
+//                            }.join()
+//                        }
+//                    }
+//                    launch {
+//                        iv1.colorFilter = null
+//                        iv2.colorFilter = null
+//
+//                    }.join()
+//                }
+//            }
+//        }
 
         return view
     }
 
-    fun show(alData: AlData){
-        //TODO 対応するアニメーションとコードを表示する
-    }
+//    fun show(alData: AlData){
+//        //TODO 対応するアニメーションとコードを表示する
+//    }
 
     //    private fun viewCompare(iv1: IVEnum, iv2: IVEnum){
 //        val image1 = findViewById<ImageView>(iv1.resId)
